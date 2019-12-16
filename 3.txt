@@ -1,0 +1,1316 @@
+Powershell:
+
+Add-Type -AssemblyName PresentationFramework
+
+# where is the XAML file?
+$xamlFile = "$PSScriptRoot\App.xaml"
+
+#create window
+[XML]$XAML = Get-Content $xamlFile #-Raw
+#$inputXML = $inputXML -replace 'mc:Ignorable="d"', '' -replace "x:N", 'N' -replace '^<Win.*', '<Window'
+#[XML]$XAML = $inputXML
+
+#Read XAML
+Write-Verbose "reading xml" -Verbose
+$reader = (New-Object System.Xml.XmlNodeReader $xaml)
+try {
+    $window = [Windows.Markup.XamlReader]::Load( $reader )
+} catch {
+    Write-Warning $_.Exception
+    throw
+}
+
+# Create variables based on form control names.
+# Variable will be named as 'var_<control name>'
+
+$xaml.SelectNodes("//*[@Name]") | ForEach-Object {
+    #"trying item $($_.Name)"
+    try {
+        Set-Variable -Name "var_$($_.Name)" -Value $window.FindName($_.Name) -ErrorAction Stop
+    } catch {
+        throw
+    }
+}
+Get-Variable var_*
+
+$var_Firstlayout_button.add_click( {
+        $var_Firstlayout.Visibility = "Hidden"
+        $var_Secondlayout.Visibility = "Visible"
+} )
+
+$Null = $window.ShowDialog()
+
+
+
+
+###########################################################
+
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="MainWindow" Height="450" Width="800">
+    <Canvas Name="MainLayout" HorizontalAlignment="Left" Height="419" VerticalAlignment="Top" Width="790">
+        <Canvas Name="Firstlayout" HorizontalAlignment="Left" Height="419" VerticalAlignment="Top" Width="790">
+        <Label Content="Please select between existing or a new Email :" Canvas.Left="107" Canvas.Top="108" Height="44" Width="564" FontSize="16" FontWeight="Bold"/>
+        <Button Name = "Firstlayout_button" Content="Submit" Canvas.Left="122" Canvas.Top="250" Width="110" Height="46"/>
+        <ComboBox Canvas.Left="122" Canvas.Top="169" Height="28" Width="171" SelectedIndex="1">
+            <ComboBoxItem>Existing Email List</ComboBoxItem>
+            <ComboBoxItem IsSelected="True">New Email</ComboBoxItem>
+        </ComboBox>
+        </Canvas>
+       
+        <Canvas Name="Secondlayout" HorizontalAlignment="Left" Height="419" VerticalAlignment="Top" Width="790" Visibility="Hidden">
+            <Button Content="Secondlayout_Submit" Canvas.Left="122" Canvas.Top="250" Width="110" Height="46"/>
+        </Canvas>
+    </Canvas>
+
+</Window>
+Posted Yesterday by vardhan
+ 
+0 Add a comment
+JUL
+12
+Reading huge xml file
+$JamsPath = "c:\abc.xml"
+$JamsConfig = ( Select-Xml -Path $JamsPath -XPath / ).Node
+Posted 12th July 2018 by vardhan
+ 
+0 Add a comment
+NOV
+10
+Add Custom ISESnippet with Try catch and finally blocks
+$CustomFunction = @'
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+#>
+function Verb-Noun
+{
+    [CmdletBinding()]
+    [Alias()]
+    [OutputType([int])]
+    Param
+    (
+        # Param1 help description
+        [Parameter(Mandatory=$true,
+                   ValueFromPipelineByPropertyName=$true,
+                   Position=0)]
+        $Param1,
+
+        # Param2 help description
+        [int]
+        $Param2
+    )
+
+    Begin
+    {
+        $PreviousEAVariable = $ErrorActionPreference
+        $ErrorActionPreference = "Stop"
+        Write-Output "Start of $($MyInvocation.InvocationName) script"
+    }
+    Process
+    {
+        try
+        {
+         
+         
+           
+        }
+       
+        catch
+        {
+            Write-Warning "Caught some execptions - Fullname $($error[0].Exception.GetType().FullName) "
+            Write-Warning "Exception Message $($error[0].Exception.Message) "
+        }
+        finally
+        {
+            $ErrorActionPreference = $PreviousEAVariable
+            write "Clearing Errors"
+            $error.Clear()                      
+        }
+    }
+    End
+    {
+        Write-Output "End of $($MyInvocation.InvocationName) script"
+    }
+}
+'@
+
+New-ISESnippet -Text $CustomFunction -Title CustomFunction -Description "Adds custom function with try catch finally blocks." -Author "Krushna vardhan reddy" -Force
+Posted 10th November 2016 by vardhan
+ 
+0 Add a comment
+SEP
+3
+Copy\Clone an instance of Powershell Object
+$o = New-Object PsObject -Property @{ prop1='a' ; prop2='b' }
+$o2 = New-Object PsObject
+$o.psobject.properties | % {
+    $o2 | Add-Member -MemberType $_.MemberType -Name $_.Name -Value $_.Value
+   
+}
+
+$o
+$o2
+Posted 3rd September 2016 by vardhan
+ 
+0 Add a comment
+APR
+6
+DSC Resource using Class
+
+
+[DscResource()]
+class PowerSettings {
+
+
+
+[DscProperty(Mandatory)]
+[int]$indexvalue
+
+
+[DscProperty(Key)]
+[ValidateSet('USB selective suspend setting','Hibernate after','Turn off hard disk after','Turn off display after','Allow hybrid sleep','Sleep after')]
+[string]$Elementname
+#[ValidateSet('USB selective suspend setting','Hibernate after','Turn off hard disk after','Turn off display after','Allow hybrid sleep','Sleep after')]
+
+
+
+    <#
+        This method is equivalent of the Set-TargetResource script function.
+        It sets the resource to the desired state.
+    #>
+    [void] Set()
+    {
+        Write-Verbose "inside Set Method"
+        if( $this.Test())
+        {
+            Write-Verbose "Already $($this.Elementname) is set to $($this.indexvalue) "
+        }
+        else
+        {
+             Write-Verbose "Setting  $($this.Elementname) is set to $($this.indexvalue) "
+             (gwmi -NS root\cimv2\power -Class win32_PowerPlan -Filter "ElementName ='Balanced'").Activate()
+
+            $aa = (gwmi -NS root\cimv2\power -Class win32_PowerPlan -Filter { ElementName ='Balanced'}).instanceid.split("\")[1]
+                        $elementsname = @"
+'$($this.Elementname)'
+"@
+             $element =  @"
+(gwmi -NS root\cimv2\power -Class win32_PowerSetting -Filter { Elementname = $elementsname}).instanceid.split("\")[1]
+"@
+         
+            $ba = Invoke-Expression $element
+             $bb = (gwmi -NS root\cimv2\power -Class win32_powersettingdataindex -Filter "InstanceID like '%$aa%ac%$ba'")
+            $bb.SettingIndexValue = $this.indexvalue
+            $bb.Put()
+
+        }
+        Write-Verbose "Leaving Set Method"
+     
+    }
+
+    <#
+        This method is equivalent of the Test-TargetResource script function.
+        It should return True or False, showing whether the resource
+        is in a desired state.
+    #>
+    [bool] Test()
+    {
+       Write-Verbose "inside Test Method"
+        $presentpowersetting = $this.Get()
+       if( $this.indexvalue -eq $presentpowersetting.indexvalue )
+       {
+           return $true
+       }
+       else
+       {
+           return $false
+       }
+       # Write-Verbose "Leaving Test Method"
+
+    }
+
+    <#
+        This method is equivalent of the Get-TargetResource script function.
+        The implementation should use the keys to find appropriate resources.
+        This method returns an instance of this class with the updated key
+         properties.
+    #>
+    [PowerSettings]Get()
+    {
+        $hash = @{}
+        Write-Verbose "inside Get Method"# $($this.Elementname) "
+        (gwmi -NS root\cimv2\power -Class win32_PowerPlan -Filter "ElementName ='Balanced'").Activate()
+
+        $aa = (gwmi -NS root\cimv2\power -Class win32_PowerPlan -Filter { ElementName ='Balanced'}).instanceid.split("\")[1]
+            $elementsname = @"
+'$($this.Elementname)'
+"@
+             $element =  @"
+(gwmi -NS root\cimv2\power -Class win32_PowerSetting -Filter { Elementname = $elementsname}).instanceid.split("\")[1]
+"@
+         
+            $ba = Invoke-Expression $element
+            $bb = (gwmi -NS root\cimv2\power -Class win32_powersettingdataindex -Filter "InstanceID like '%$aa%ac%$ba'")
+
+       # $this.indexvalue = $bb.SettingIndexValue
+       $hash.Elementname = $this.Elementname
+       $hash.indexvalue = $bb.SettingIndexValue
+           Write-Verbose "Leaving Get Method"
+        return $hash
+
+
+    }
+
+
+}
+
+
+##########################################################################
+Basic Testing :-
+
+
+PS D:\> $a = [PowerSettings]::new()
+
+PS D:\> $a.Elementname
+
+PS D:\> $a.Elementname = 'Sleep after'
+
+PS D:\> $a.Elementname = 'Sleep after sjkdbdj'
+Exception setting "Elementname": "The argument "Sleep after sjkdbdj" does not belong to the set "USB selective suspend setting,Hibernate
+after,Turn off hard disk after,Turn off display after,Allow hybrid sleep,Sleep after" specified by the ValidateSet attribute. Supply an
+argument that is in the set and then try the command again."
+At line:1 char:1
++ $a.Elementname = 'Sleep after sjkdbdj'
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], SetValueInvocationException
+    + FullyQualifiedErrorId : ExceptionWhenSetting
+
+
+PS D:\> $a
+
+indexvalue Elementname
+---------- -----------
+         0 Sleep after
+
+
+
+PS D:\> $a.Test()
+DEBUG:
+False
+
+PS D:\> $a.get()
+
+indexvalue Elementname
+---------- -----------
+      1200 Sleep after
+
+
+
+PS D:\> $a.set()
+DEBUG:
+
+PS D:\> $a.get()
+
+indexvalue Elementname
+---------- -----------
+         0 Sleep after
+Posted 6th April 2016 by vardhan
+ 
+0 Add a comment
+MAR
+29
+Creating a Secure Environment using PowerShell Desired State Configuration
+https://blogs.msdn.microsoft.com/powershell/2014/07/21/creating-a-secure-environment-using-powershell-desired-state-configuration/
+
+
+Posted 29th March 2016 by vardhan
+ 
+0 Add a comment
+FEB
+17
+Exam 70-533 - Implementing Microsoft Azure Infrastructure Solutions
+https://anderseideblog.wordpress.com/reading-lists/ms-exam-70-533-implementing-microsoft-azure-infrastructure-solutions/
+
+
+Posted 17th February 2016 by vardhan
+ 
+0 Add a comment
+JAN
+21
+Run a PowerShell v3 Script From a SQL Server Agent Job
+http://pcfromdc.blogspot.in/2014/01/run-powershell-v3-script-from-sql.html
+
+Posted 21st January 2016 by vardhan
+ 
+0 Add a comment
+DEC
+22
+Testing Script Modules with Pester
+http://blogs.technet.com/b/heyscriptingguy/archive/2015/12/17/testing-script-modules-with-pester.aspx?utm_content=bufferb95e8&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer
+
+Posted 22nd December 2015 by vardhan
+ 
+0 Add a comment
+DEC
+22
+Building Azure Resource Manager Templates
+http://www.ravichaganti.com/blog/building-azure-resource-manager-templates-an-introduction/
+
+
+Posted 22nd December 2015 by vardhan
+ 
+0 Add a comment
+NOV
+23
+Get Azure Management Certificates with Expiry Dates
+function Get-ManagementCertficates
+{
+    [CmdletBinding()]
+    [OutputType([int])]
+    Param
+    (
+        # Param1 help description
+        [Parameter(Mandatory=$true,
+                   ValueFromPipelineByPropertyName=$true,
+                   Position=0)]
+        $subscriptionID,
+
+        # Param2 help description
+        [String]
+        $thumbprint
+    )
+
+    Begin
+    {
+    }
+    Process
+    {
+        $headerDate = '2014-10-01'
+        $headers = @{"x-ms-version"="$headerDate"; "Content-Length"=$body.Length}
+        $uri = "https://management.core.windows.net/$subscriptionID/certificates"
+        $ErrorActionPreference = 'silentlycontinue'
+
+
+        $Managementcertificates = Invoke-RestMethod -Method Get -Uri $uri -CertificateThumbprint $thumbprint  -ContentType "application/xml" -Headers $headers
+
+        $azureCert = $Managementcertificates.SubscriptionCertificates.SubscriptionCertificate
+
+        foreach( $Managementcertificate in $azureCert)
+        {   
+            [byte[]]$certData = [System.Convert]::FromBase64String($Managementcertificate.SubscriptionCertificateData)
+
+            $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2] $certData
+
+            $ManagementcertificateExpirydate = $cert | Select-Object -Property FriendlyName,Subject,NotAfter,thumbprint
+          
+        }
+        $ManagementcertificateExpirydate
+    }
+    End
+    {
+    }
+}
+Posted 23rd November 2015 by vardhan
+ 
+0 Add a comment
+NOV
+16
+Pester and Azure CLI
+1) Pester (PowerShell unit testing framework)
+2)  The Azure CLI provides a set of open source, cross-platform commands for working with the Azure Platform
+
+Posted 16th November 2015 by vardhan
+ 
+1 View comments
+OCT
+12
+Create an empty folder structure
+
+
+New-Item -ItemType Directory -Path ".\FolderX\FolderY\FolderZ"
+Posted 12th October 2015 by vardhan
+ 
+0 Add a comment
+OCT
+9
+Working with the Desired State Configuration Feature - Link
+http://www.windowsnetworking.com/articles-tutorials/windows-server-2012/working-desired-state-configuration-feature-part1.html
+Posted 9th October 2015 by vardhan
+ 
+0 Add a comment
+OCT
+9
+Useful Resources to Teach Yourself PowerShell DSC
+http://dille.name/blog/2014/12/10/useful-resources-to-teach-yourself-powershell-dsc/
+Posted 9th October 2015 by vardhan
+ 
+0 Add a comment
+OCT
+8
+clear the variables after script execution
+ Get-Variable  | Remove-Variable -ErrorAction SilentlyContinue
+Posted 8th October 2015 by vardhan
+ 
+0 Add a comment
+SEP
+18
+Replace the first occurence of a string\char in Powershell using Regex
+$str = 'MaxExecutionTime:00:00:00'
+$regex = [Regex] ":"
+$x = $regex.Replace($str, "=", 1)
+$x
+
+############################
+Output:
+
+MaxExecutionTime=00:00:00
+Posted 18th September 2015 by vardhan
+ 
+0 Add a comment
+SEP
+9
+Get Parent Function Name in Powershell
+function Get-ChildName {
+   "Parent function Name: "+(Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+   "Child function Name: "+ $MyInvocation.InvocationName
+}
+
+function Get-ParentFunction
+{
+        Get-ChildName
+     
+}
+
+Get-ParentFunction
+Posted 9th September 2015 by vardhan
+ 
+0 Add a comment
+SEP
+3
+Check if a string is null or empty in PowerShell
+[string]::IsNullOrEmpty($string)
+Posted 3rd September 2015 by vardhan
+ 
+0 Add a comment
+AUG
+26
+Workflows from Technet
+#http://blogs.technet.com/b/heyscriptingguy/archive/2013/08/19/powershell-workflow-for-mere-mortals-part-1.aspx
+#example 1 Workflow
+Workflow HelloUser
+
+{ "Hello $env:USERNAME"+"@microsoft.com" }
+
+HelloUser
+
+#example 2 Workflow
+Workflow HelloUserTime
+
+{
+
+ $dateHour = Get-date -UFormat '%H'
+
+ if($dateHour -le 12) {"good morning"}
+
+ ELSeIF ($dateHour -gt 12 -AND $dateHour -le 18) {"good afternoon"}
+
+ ELSE {"good evening"}
+
+}
+
+HelloUserTime
+
+#http://blogs.technet.com/b/heyscriptingguy/archive/2013/08/20/powershell-workflow-for-mere-mortals-part-2.aspx
+#example 3 Workflow
+
+Workflow GetComputerInfo
+
+{
+
+ $computers = "localhost","localhost","localhost","localhost","localhost","localhost","localhost","localhost"
+
+ Foreach -Parallel ($cn in $computers)
+
+ { Get-CimInstance -PSComputerName $cn -ClassName win32_computersystem }
+
+ }
+
+GetComputerInfo
+
+#http://blogs.technet.com/b/heyscriptingguy/archive/2013/08/21/powershell-workflow-for-mere-mortals-part-3.aspx
+#example 4 Wrokflow
+
+ WorkFlow Get-EventLogData
+
+{
+
+ Parallel
+
+ {
+
+   Get-EventLog -LogName application -Newest 1
+
+   Get-EventLog -LogName system -Newest 1
+
+   Get-EventLog -LogName 'Windows PowerShell' -Newest 1 }
+
+}
+
+Get-EventLogData -PSComputerName "localhost","$env:COMPUTERNAME"
+
+#http://blogs.technet.com/b/heyscriptingguy/archive/2013/08/22/powershell-workflow-for-mere-mortals-part-4.aspx
+#example 5 Wrokflow
+
+workflow Get-CompInfo
+
+{
+
+  Get-NetAdapter
+
+  Get-Disk
+
+  Get-Volume
+
+}
+
+Get-CompInfo -PSComputerName  "localhost", "$env:COMPUTERNAME" -PSPersist $true
+
+#example 6 Wrokflow
+
+workflow Get-CompInfo
+
+{
+
+  Get-process -PSPersist $true
+
+  Get-Disk
+
+  Get-service -PSPersist $true
+
+}
+
+Get-CompInfo -PSComputerName  "localhost", "$env:COMPUTERNAME"
+
+#example 7 Wrokflow
+workflow Get-CompInfo
+
+{
+
+  Get-NetAdapter
+
+  Get-Disk
+
+  Get-Volume
+
+  Checkpoint-Workflow
+
+}
+
+Get-CompInfo -PSComputerName  "localhost", "$env:COMPUTERNAME"
+
+
+#http://blogs.technet.com/b/heyscriptingguy/archive/2013/08/23/powershell-workflow-for-mere-mortals-part-5.aspx
+#example 8 Wrokflow
+
+workflow get-winfeatures
+
+{
+
+ Parallel {
+
+    Get-WindowsFeature -Name PowerShell*
+
+    InlineScript {$env:COMPUTERNAME}
+
+    Sequence {
+
+        Get-date
+
+        $PSVersionTable.PSVersion } }
+
+}
+
+get-winfeatures -PSComputerName "localhost", "$env:COMPUTERNAME"
+
+#example 9 Wrokflow
+Posted 26th August 2015 by vardhan
+ 
+0 Add a comment
+JUN
+11
+Windows PowerShell Script Workflow Debugging Links
+http://blogs.msdn.com/b/powershell/archive/2013/12/19/windows-powershell-script-workflow-debugging.aspx
+
+
+Posted 11th June 2015 by vardhan
+ 
+0 Add a comment
+JUN
+10
+Remove empty items from array in PowerShell
+$content = Get-Content c:\temp\servers.txt            
+Write-Host "Array size before removing empty lines : $($content.Count)"            
+$content = $content | ? {$_}            
+Write-Host "Array size AFTER removing empty lines : $($content.Count)"
+Posted 10th June 2015 by vardhan
+ 
+0 Add a comment
+JUN
+4
+XML and Powershell - Using Select-Xml
+function Get-Property
+{
+    [CmdletBinding()]
+    [OutputType([int])]
+    Param
+    (
+
+        $Path = "D:\Services"
+
+    )
+
+$allServicexmls= Get-ChildItem $Path -Recurse -Filter Setup.wxs
+$filesNames= $allServicexmls | Select-Object -Property name,Directory,Fullname
+
+foreach($filesName in $filesNames)
+{
+
+    [xml]$wixSetup =  Get-Content $filesName.Fullname
+
+   # Write-Debug $filesName -Debug
+    $item = $wixSetup | Select-Xml -XPath '//@Value' #| foreach {$_.node}
+
+    $hash= @{}
+
+    $item.Node.OwnerElement | Select-Object -Property id,value |  foreach { $hash.Add($_.id,$_.value)}
+
+    #//department[@count="10"]
+    $defines= $wixSetup.define
+    foreach($define in $defines )
+    {
+        $x= $define -split "="
+        $hash.Add($x[0],$x[1])
+
+    }
+   
+    $Filename=  $filesName.Directory.name
+
+
+
+     $OutputTable = $hash.getEnumerator() | foreach{
+
+        New-Object PSObject -Property ([ordered]@{PropertyName = $_.Name;Value = $_.Value})
+
+    }
+
+$OutputTable | Export-Csv  "D:\Services\$Filename.csv"
+
+
+
+   }
+}
+
+Get-Property
+Posted 4th June 2015 by vardhan
+ 
+0 Add a comment
+JUN
+4
+Custom Powershell Array of objects
+$arrayobject= @()
+    foreach($x in $y)
+    {
+
+        $info = @{}
+        $info.PropertyName=$x.Name
+        $info.Value=$x.Value
+        $info.ComponentName=$x.parentnode.name
+            $object = New-Object -TypeName PSObject -Property $info
+            $arrayobject+= $object
+}
+Posted 4th June 2015 by vardhan
+ 
+0 Add a comment
+JUN
+4
+Convert PowerShell HashTable to CSV File
+$OutputTable = $hash.getEnumerator() | foreach{
+
+        New-Object PSObject -Property ([ordered]@{PropertyName = $_.Name;Value = $_.Value})
+
+    }
+Posted 4th June 2015 by vardhan
+ 
+0 Add a comment
+MAY
+29
+Dynamic Parm - Array
+ DynamicParam {
+         if ($DeploymentType -eq "SpecificComponents")
+         {
+              #create a new ParameterAttribute Object
+              $CMDBComponentNamesAttribute = New-Object System.Management.Automation.ParameterAttribute
+              $CMDBComponentNamesAttribute.Mandatory = $true
+              $CMDBComponentNamesAttribute.HelpMessage = "This is available only if DeploymentType is SpecificComponents"
+
+              #create an attributecollection object for the attribute we just created.
+              $attributeCollection = new-object System.Collections.ObjectModel.Collection[System.Attribute]
+
+              #add our custom attribute
+              $attributeCollection.Add($CMDBComponentNamesAttribute)
+
+              #add our paramater specifying the attribute collection
+              $CMDBComponentNamesParam = New-Object System.Management.Automation.RuntimeDefinedParameter('CMDBComponentNames', "System.object[]", $attributeCollection)
+
+              #expose the name of our parameter
+              $paramDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+              $paramDictionary.Add('CMDBComponentNames', $CMDBComponentNamesParam)
+              return $paramDictionary
+        }
+Posted 29th May 2015 by vardhan
+ 
+0 Add a comment
+MAY
+6
+Dynamically Create a HashTable using New-Variable
+$ConfigFilePath = ".\all.xml"
+[xml]$Servers =  Get-Content $ConfigFilePath
+$components = $Servers.DeploymentInstance.ComponentConfiguration
+foreach($component in  $components)
+{
+    $temp = $component.name
+    $x= $component.propertyvalue | Select-Object -Property Name,Value
+    New-Variable -Name $temp -Value $x -Scope Global
+   }
+Posted 6th May 2015 by vardhan
+ 
+0 Add a comment
+MAY
+2
+DSC Third Example - Basic
+$ConfigData = @{
+
+    AllNodes =
+
+    @(
+
+        @{
+
+            NodeName           = "*"
+
+            LogPath            = "C:\Logs"
+
+        },
+
+
+
+        @{
+
+            NodeName = "Nana-VM-1";
+
+            Role     = "WebServer"
+
+            SiteContents = "C:\Site1"
+
+            SiteName = "Website1"
+
+            ServiceName = "bits"
+
+        },
+
+
+
+        @{
+
+            NodeName = "Nana-VM-2";
+
+            Role     = "SQLServer"
+
+        },
+
+
+
+        @{
+
+            NodeName = "Nana-VM-3";
+
+            Role     = "WebServer";
+
+            SiteContents = "C:\Site2"
+
+            SiteName = "Website3"
+
+            ServiceName = "bits"
+
+        }
+
+    );
+
+}
+
+Configuration Website
+{
+
+  Import-DscResource -ModuleName xWebAdministration -Name MSFT_xWebsite
+
+  Node $AllNodes.Where{$_.NodeName -eq "Nana-VM-3"}.NodeName
+    {
+        xWebsite Site
+
+        {
+
+            Name         = $Node.SiteName
+
+            PhysicalPath = $Node.SiteContents
+
+            Ensure       = "Present"
+
+        }
+
+        Service Bits #ResourceName
+        {
+            Name = $Node.ServiceName
+            State = "Running"
+        }
+    }
+}
+
+
+
+Website  -ConfigurationData $ConfigData
+###############################################################################
+
+PS C:\Windows\system32> C:\Users\krushna.pakkiragari\Desktop\DSC-Example1.ps1
+WARNING: The configuration 'Website' is loading one or more built-in resources without explicitly importing associated modules. Add Import-DscResource –ModuleName ’PSDesiredStateConfiguration’ to your configuration to avoi
+d this message.
+
+
+    Directory: C:\Windows\system32\Website
+
+
+Mode                LastWriteTime         Length Name                                                        
+----                -------------         ------ ----                                                        
+-a----         5/2/2015   3:19 PM           2700 Nana-VM-3.mof                                               
+Posted 2nd May 2015 by vardhan
+ 
+0 Add a comment
+MAY
+2
+DSC Second Example - Basic
+$ConfigData = @{
+    AllNodes = @(
+        @{
+            NodeName     = 'localhost'
+            ServiceName  = 'Bits'
+            ServiceState = "Stopped"
+        }
+    )
+}
+
+Configuration BitsService
+{
+  Node $AllNodes.NodeName {
+        Service Bits
+        {
+            Name = $AllNodes.ServiceName
+            State = $AllNodes.ServiceState
+        }
+    }
+}
+
+
+
+BitsService  -ConfigurationData $ConfigData
+Write-Output "Present DSC Config   $((Test-DscConfiguration -Path .\BitsService ).InDesiredState ) "
+
+Start-DscConfiguration –Path .\BitsService –Wait –Verbose
+
+Write-Output "After Start-DscConfiguration   $((Test-DscConfiguration -Path .\BitsService ).InDesiredState ) "
+
+################################################################################
+OutPut:-
+
+PS C:\Users\krushna.pakkiragari> C:\Users\krushna.pakkiragari\Desktop\DSC-Example1.ps1
+WARNING: The configuration 'BitsService' is loading one or more built-in resources with
+out explicitly importing associated modules. Add Import-DscResource –ModuleName ’PSDesi
+redStateConfiguration’ to your configuration to avoid this message.
+
+
+    Directory: C:\Users\krushna.pakkiragari\BitsService
+
+
+Mode                LastWriteTime         Length Name                                
+----                -------------         ------ ----                                
+-a----         5/2/2015   9:22 AM           2006 localhost.mof                       
+
+Present DSC Config   False
+
+VERBOSE: Perform operation 'Invoke CimMethod' with following parameters, ''methodName'
+= SendConfigurationApply,'className' = MSFT_DSCLocalConfigurationManager,'namespaceName
+' = root/Microsoft/Windows/DesiredStateConfiguration'.
+VERBOSE: An LCM method call arrived from computer WIN-G1V9G4H06KC with user sid S-1-5-2
+1-2042451347-1951884576-2202397797-1001.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Set      ]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Resource ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Test     ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Test     ]  [[Service]Bits]  in 0.0000 secon
+ds.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Set      ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]:                            [[Service]Bits] Service 'Bits' a
+lready exists. Write properties such as Status, DisplayName, Description, Dependencies
+will be ignored for existing services.
+VERBOSE: [WIN-G1V9G4H06KC]:                            [[Service]Bits] Service 'Bits' s
+topped.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Set      ]  [[Service]Bits]  in 0.5640 secon
+ds.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Resource ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Set      ]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Set      ]    in  0.8280 seconds.
+VERBOSE: Operation 'Invoke CimMethod' complete.
+VERBOSE: Time taken for configuration job to complete is 0.921 seconds
+
+After Start-DscConfiguration   True
+Posted 2nd May 2015 by vardhan
+ 
+0 Add a comment
+MAY
+2
+DSC First Example - Basic
+Configuration BitsService
+{
+  param ($MachineName)
+
+  Node $MachineName
+  {
+    #Install the IIS Role
+    Service "Bits" #ResourceName
+{
+    Name = "Bits"
+    State = "Running"
+}
+  }
+}
+
+
+
+BitsService -MachineName localhost
+Write-Output "Present DSC Config   $((Test-DscConfiguration -Path .\BitsService ).InDesiredState ) "
+
+Start-DscConfiguration –Path .\BitsService –Wait –Verbose
+
+Write-Output "After Start-DscConfiguration   $((Test-DscConfiguration -Path .\BitsService ).InDesiredState ) "
+
+
+#################################################################################
+
+OutPut:-
+
+PS C:\Users\krushna.pakkiragari> C:\Users\krushna.pakkiragari\Desktop\DSC-Example1.ps1
+WARNING: The configuration 'BitsService' is loading one or more built-in resources with
+out explicitly importing associated modules. Add Import-DscResource –ModuleName ’PSDesi
+redStateConfiguration’ to your configuration to avoid this message.
+
+
+    Directory: C:\Users\krushna.pakkiragari\BitsService
+
+
+Mode                LastWriteTime         Length Name                                
+----                -------------         ------ ----                                
+-a----         5/2/2015   8:58 AM           2004 localhost.mof                       
+
+Present DSC Config   False
+
+VERBOSE: Perform operation 'Invoke CimMethod' with following parameters, ''methodName'
+= SendConfigurationApply,'className' = MSFT_DSCLocalConfigurationManager,'namespaceName
+' = root/Microsoft/Windows/DesiredStateConfiguration'.
+VERBOSE: An LCM method call arrived from computer WIN-G1V9G4H06KC with user sid S-1-5-2
+1-2042451347-1951884576-2202397797-1001.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Set      ]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Resource ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Test     ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Test     ]  [[Service]Bits]  in 0.0320 secon
+ds.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ Start  Set      ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]:                            [[Service]Bits] Service 'Bits' a
+lready exists. Write properties such as Status, DisplayName, Description, Dependencies
+will be ignored for existing services.
+VERBOSE: [WIN-G1V9G4H06KC]:                            [[Service]Bits] Service 'Bits' s
+tarted.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Set      ]  [[Service]Bits]  in 0.7190 secon
+ds.
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Resource ]  [[Service]Bits]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Set      ]
+VERBOSE: [WIN-G1V9G4H06KC]: LCM:  [ End    Set      ]    in  1.7350 seconds.
+VERBOSE: Operation 'Invoke CimMethod' complete.
+VERBOSE: Time taken for configuration job to complete is 1.808 seconds
+
+After Start-DscConfiguration   True
+
+Posted 2nd May 2015 by vardhan
+ 
+0 Add a comment
+APR
+21
+Resource Designer Tool - Reference URL
+http://blogs.msdn.com/b/powershell/archive/2013/11/19/resource-designer-tool-a-walkthrough-writing-a-dsc-resource.aspx
+
+Posted 21st April 2015 by vardhan
+ 
+0 Add a comment
+APR
+21
+Create a Composite DSC Resource
+1) Save the Below Declarative syntax as  WebsiteFeaturesInstall.Schema.psm1
+
+Configuration WebsiteFeaturesInstall
+{
+Param(
+[validateSet("Present","Absent")]
+$Ensure
+)
+ 
+    #Install the IIS Role
+     WindowsFeature AS-Web-Support
+        {
+            Ensure          = $Ensure
+            Name            = "AS-Web-Support"
+        }
+ WindowsFeature AS-Ent-Services
+        {
+            Ensure          = $Ensure
+            Name            = "AS-Ent-Services"
+        }
+}
+
+2) Use New-ModuleManifest command to create ModuleManifest file (*.psd1) and use -rootModule
+
+3) Save the above 2 files in a directory same as file names
+
+4)  Create a Empty Directory which acts as a Module for the composite DSC resource.
+
+5)  Use New-ModuleManifest command to create ModuleManifest file (*.psd1)
+
+6)  Save the Complete folder structure in PSModule Path 
+
+Posted 21st April 2015 by vardhan
+ 
+0 Add a comment
+APR
+16
+Returns Path and File of the script saved
+Returns Path and File of the script saved
+$MyInvocation.MyCommand.Path
+Posted 16th April 2015 by vardhan
+ 
+0 Add a comment
+APR
+7
+Bind Parameters at run time using hash Table
+Function Outer-Method
+{
+Param
+(
+[parameter(Mandatory = $true)]
+[ValidateNotNullOrEmpty()]
+
+[string]
+$First,
+
+[parameter(Mandatory = $true)]
+[ValidateNotNullOrEmpty()]
+
+[string]
+$Second,
+
+[parameter(Mandatory = $true)]
+[ValidateNotNullOrEmpty()]
+       
+[string]
+$third
+)
+
+Write-Host @PSBoundParameters
+
+$properties = @{}
+if($PSBoundParameters.ContainsKey("Second"))
+{
+   $properties.Add("Second","$Second")
+}
+
+if($PSBoundParameters.ContainsKey("third"))
+{
+    $properties.Add("third","$third")
+}
+
+$properties
+Inner-Method @properties
+}
+
+Function Inner-Method
+{
+Param
+(
+[parameter(Mandatory = $true)]
+[ValidateNotNullOrEmpty()]
+       
+[string]
+$third,
+
+[parameter(Mandatory = $true)]
+[ValidateNotNullOrEmpty()]
+       
+[string]
+$Second
+
+)
+
+Write-Host $Second  and $third
+
+}
+
+$parameters = @{
+First = "Hello"
+Second = "World"
+Third = "biscuit"
+}
+
+
+
+Clear-Host
+#$parameters
+
+Outer-Method @parameters
+Posted 7th April 2015 by vardhan
+ 
+0 Add a comment
+MAR
+31
+Debug Powershell Scripts with Write-Debug Cmdlet
+Write-Debug " " -Debug
+Posted 31st March 2015 by vardhan
+ 
+0 Add a comment
+MAR
+31
+Fully Qualified Domain Name through Powershell
+
+[System.Net.DNS]::GetHostByName('').HostName
+
+[System.Net.DNS]::GetHostByName('$ComputerName').HostName
+Posted 31st March 2015 by vardhan
+ 
+0 Add a comment
+MAR
+27
+Create DataSet object through Powershell
+
+
+$ds = new-object System.Data.DataSet
+$ds.Tables.Add("tblTest")
+[void]$ds.Tables["tblTest"].Columns.Add("ServerRole",[string])
+[void]$ds.Tables["tblTest"].Columns.Add("ServerName",[string])
+[void]$ds.Tables["tblTest"].Columns.Add("RoleID",[string])
+
+#$object
+
+$object | foreach {  $dr = $ds.Tables["tblTest"].NewRow()
+    $dr["ServerRole"] = $_.Role
+    $dr["ServerName"] = $_.ServerName
+    $dr["RoleID"]= $_.RoleID
+    $ds.Tables["tblTest"].Rows.Add($dr)
+
+}
+
+
+#$ds.Tables["tblTest"]
+
+
+$ds.Tables[0] | foreach {
+    write-host "role value is :  " $_.ServerRole
+     write-host "Servername value is :" $_.ServerName
+    write-host "RoleID is :" $_.RoleID
+}
+Posted 27th March 2015 by vardhan
+ 
+0 Add a comment
+MAR
+17
+Create Dynamic Variables using Powershell
+function Get-ServerDetails($role)
+{
+    $temp= $role  + "params"
+             New-Variable -Name $temp -Value (Get-Random) -Scope Global
+
+             Write-Host "Retriving $role ServerNames" -ForegroundColor Yellow
+            
+             $temp2= $role  + "List"
+             New-Variable -Name $temp2 -Value @() -Scope  Global
+              (Get-Random) | ForEach-Object {
+       
+                        (Get-Variable -Name $temp2).Value+= $_
+                      
+                       
+                        }
+                        (Get-Variable -Name $temp2).Value
+}
+#Get-Variable | Remove-Variable -Force
+"x1","x2"| foreach { Get-ServerDetails -role $_ }
+
+Get-Variable -Name x1*
+Posted 17th March 2015 by vardhan
+ 
+0 Add a comment
+JAN
+22
+Pinging list of servers in seperate command prompt (Ping -t) using Powershell
+Here is the code to Ping a list of servers from a text file.
+
+<#
+ # Function to select any file using GUI from Powershell
+ #Ping using powershell
+#>
+
+Function Get-FileName($initialDirectory)
+{ 
+ [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
+ Out-Null
+
+ $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+ $OpenFileDialog.initialDirectory = $initialDirectory
+ $OpenFileDialog.filter = "All files (*.*)| *.*"
+ $OpenFileDialog.ShowDialog() | Out-Null
+ return($OpenFileDialog.filename)
+} #end function Get-FileName
+
+# *** Entry Point to Script ***
+$inpoutfilepath =   Get-FileName -initialDirectory "c:\"
+if($inpoutfilepath -ne "")
+{
+    if (Test-Path $inpoutfilepath)  #"D:\servers.txt"
+    {
+         $ComputerNames=Get-Content $inpoutfilepath
+   
+         foreach ($ComputerName in $ComputerNames)
+         {
+            start-process cmd  " /c ping $ComputerName -t"
+          }
+    }
+    else
+    {
+        Write-Warning "unable to find the input file"
+    }
+}
+    else
+    {
+        Write-Warning "No File has been selected"
+    }
+Posted 22nd January 2015 by vardhan
+ 
+0 Add a comment
+Loading
